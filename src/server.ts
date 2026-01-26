@@ -97,6 +97,46 @@ const checkOrigin = (
 };
 
 /**
+ * Validates if a URL appears to be an image URL by checking the file extension
+ * @param url - The URL to validate
+ * @returns true if the URL appears to be an image URL, false otherwise
+ */
+const isValidImageUrl = (url: URL): boolean => {
+  const image_extensions = [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".svg",
+    ".bmp",
+    ".ico",
+    ".avif",
+    ".tiff",
+    ".tif",
+  ];
+
+  const pathname_lower = url.pathname.toLowerCase();
+
+  // Check if pathname ends with an image extension
+  for (const ext of image_extensions) {
+    if (pathname_lower.endsWith(ext)) {
+      return true;
+    }
+  }
+
+  // Check if there's an image extension before query parameters
+  const pathname_without_query = pathname_lower.split("?")[0];
+  for (const ext of image_extensions) {
+    if (pathname_without_query.endsWith(ext)) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+/**
  * Proxies image downloads to bypass CORS restrictions
  * Downloads the image server-side and forwards it to the client
  * GET /?url=<image_url>
@@ -140,6 +180,15 @@ app.get(
         return;
       }
 
+      // Validate that the URL appears to be an image URL
+      if (!isValidImageUrl(parsed_url)) {
+        setCorsHeaders(req, res);
+        res.status(400).json({
+          error: "URL does not appear to be an image link",
+        });
+        return;
+      }
+
       // Basic security: check file size limit
 
       // Download the image server-side
@@ -150,6 +199,9 @@ app.get(
           Accept: "image/webp,image/apng,image/*,*/*;q=0.8",
           "Accept-Language": "en-US,en;q=0.9",
           "Cache-Control": "no-cache",
+          "Sec-Fetch-Dest": "image",
+          "Sec-Fetch-Mode": "no-cors",
+          "Sec-Fetch-Site": "cross-site",
           Referer: parsed_url.origin,
         },
         // Add timeout to prevent hanging requests
